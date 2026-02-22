@@ -250,7 +250,7 @@ const props = defineProps({
 })
 
 // 后端基础地址（替换为你的IP）
-const baseUrl = ref('http://http://47.98.59.106:8000')
+const baseUrl = ref('http://localhost:8000')
 const router = useRouter()
 const route = useRoute()
 

@@ -160,8 +160,8 @@ const globalLoading = ref(false)
 
 // 系统设置表单
 const systemForm = ref({
-  baseUrl: 'http://47.98.59.106:8000', // 后端接口地址
-  imageDomain: 'http://47.98.59.106:8000', // 图片预览域名
+  baseUrl: 'http://localhost:8000', // 后端接口地址
+  imageDomain: 'http://localhost:8000', // 图片预览域名
   pageSize: 10, // 每页默认条数
   refreshTime: 0 // 自动刷新时间（分钟）
 })

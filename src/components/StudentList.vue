@@ -92,7 +92,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
 // 后端基础地址（替换为你的IP）
-const baseUrl = ref('http://47.98.59.106:8000')
+const baseUrl = ref('http://localhost:8000')
 const router = useRouter()
 
 // 筛选表单
