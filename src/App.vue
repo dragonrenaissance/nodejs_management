@@ -1,91 +1,110 @@
 <template>
   <div id="app">
-    <!-- 全局导航栏 -->
-    <el-container class="app-container">
-      <el-header class="app-header">
-        <div class="header-left">
-          <h1 class="system-title">学生成果提交与审核管理系统</h1>
-        </div>
-        <div class="header-right">
-          <el-button 
-            type="text" 
-            icon="el-icon-setting" 
-            @click="showSetting = true"
-          >
-            系统设置
-          </el-button>
-          <el-dropdown>
-            <span class="user-info">
-              <i class="el-icon-user"></i> 管理员
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item icon="el-icon-user">个人中心</el-dropdown-item>
-                <el-dropdown-item icon="el-icon-s-tools">修改密码</el-dropdown-item>
-                <el-dropdown-item 
-                  icon="el-icon-switch-button" 
-                  @click="handleLogout"
-                >
-                  退出登录
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </el-header>
+    <!-- 登录页面不显示导航栏和页脚 -->
+    <template v-if="$route.name !== 'Login'">
+      <!-- 全局导航栏 -->
+      <el-container class="app-container">
+        <el-header class="app-header">
+          <div class="header-left">
+            <h1 class="system-title">学生成果提交与审核管理系统</h1>
+          </div>
+          <div class="header-right">
+            <el-button 
+              type="text" 
+              icon="el-icon-setting" 
+              @click="showSetting = true"
+            >
+              系统设置
+            </el-button>
+            <el-dropdown>
+              <span class="user-info">
+                <i class="el-icon-user"></i> {{ userInfo.username || '管理员' }}
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item icon="el-icon-user">个人中心</el-dropdown-item>
+                  <el-dropdown-item icon="el-icon-s-tools">修改密码</el-dropdown-item>
+                  <el-dropdown-item 
+                    icon="el-icon-switch-button" 
+                    @click="handleLogout"
+                  >
+                    退出登录
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </el-header>
 
-      <el-container>
-        <!-- 侧边导航栏 -->
-        <el-aside width="200px" class="app-aside">
-          <el-menu
-            default-active="1"
-            class="el-menu-vertical-demo"
-            background-color="#2e3b4e"
-            text-color="#fff"
-            active-text-color="#ffd04b"
-            :collapse="isCollapse"
-            @select="handleMenuSelect"
-          >
-            <el-menu-item index="1">
-              <template #icon>
-                <i class="el-icon-menu"></i>
-              </template>
-              <span slot="title">成果列表管理</span>
-            </el-menu-item>
-            <el-menu-item index="2">
-              <template #icon>
-                <i class="el-icon-user-solid"></i>
-              </template>
-              <span slot="title">学生账号管理</span>
-            </el-menu-item>
-            <el-menu-item index="3">
-              <template #icon>
-                <i class="el-icon-pie-chart"></i>
-              </template>
-              <span slot="title">数据统计分析</span>
-            </el-menu-item>
-            <el-menu-item index="4">
-              <template #icon>
-                <i class="el-icon-s-tools"></i>
-              </template>
-              <span slot="title">系统参数配置</span>
-            </el-menu-item>
-          </el-menu>
-        </el-aside>
+        <el-container>
+          <!-- 侧边导航栏 -->
+          <el-aside width="200px" class="app-aside">
+            <el-menu
+              :default-active="activeMenu"
+              class="el-menu-vertical-demo"
+              background-color="#2e3b4e"
+              text-color="#fff"
+              active-text-color="#ffd04b"
+              :collapse="isCollapse"
+              router
+            >
+              <el-menu-item index="/students">
+                <template #icon>
+                  <i class="el-icon-menu"></i>
+                </template>
+                <span>学生列表</span>
+              </el-menu-item>
+              <!-- 根据权限显示用户管理菜单 -->
+              <el-menu-item 
+                v-if="hasPermission('user:manage')" 
+                index="/users"
+              >
+                <template #icon>
+                  <i class="el-icon-user-solid"></i>
+                </template>
+                <span>用户管理</span>
+              </el-menu-item>
+              <!-- 根据权限显示角色管理菜单 -->
+              <el-menu-item 
+                v-if="hasPermission('role:manage')" 
+                index="/roles"
+              >
+                <template #icon>
+                  <i class="el-icon-connection"></i>
+                </template>
+                <span>角色管理</span>
+              </el-menu-item>
+              <!-- 根据权限显示权限管理菜单 -->
+              <el-menu-item 
+                v-if="hasPermission('permission:manage')" 
+                index="/permissions"
+              >
+                <template #icon>
+                  <i class="el-icon-lock"></i>
+                </template>
+                <span>权限管理</span>
+              </el-menu-item>
+            </el-menu>
+          </el-aside>
 
-        <!-- 主内容区域（路由出口） -->
-        <el-main class="app-main">
-          <router-view />
-        </el-main>
+          <!-- 主内容区域（路由出口） -->
+          <el-main class="app-main">
+            <router-view />
+          </el-main>
+        </el-container>
+
+        <!-- 页脚 -->
+        <el-footer class="app-footer">
+          <div class="footer-content">
+            © 2026 学生成果提交与审核管理系统 - 技术支持：xxx
+          </div>
+        </el-footer>
       </el-container>
-
-      <!-- 页脚 -->
-      <el-footer class="app-footer">
-        <div class="footer-content">
-          © 2026 学生成果提交与审核管理系统 - 技术支持：xxx
-        </div>
-      </el-footer>
-    </el-container>
+    </template>
+    <!-- 登录页面 -->
+    <template v-else>
+      <router-view />
+    </template>
 
     <!-- 系统设置弹窗 -->
     <el-dialog 
@@ -141,13 +160,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, watch, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 
 // 路由实例
 const router = useRouter()
+const route = useRoute()
 
 // 侧边栏折叠状态
 const isCollapse = ref(false)
@@ -158,16 +178,35 @@ const showSetting = ref(false)
 // 全局加载状态
 const globalLoading = ref(false)
 
+// 用户信息
+const userInfo = ref({
+  username: '',
+  permissions: []
+})
+
 // 系统设置表单
 const systemForm = ref({
-  baseUrl: 'http://47.98.59.106:8000', // 后端接口地址
-  imageDomain: 'http://47.98.59.106:8000', // 图片预览域名
+  baseUrl: 'http://8.166.131.238:8000', // 后端接口地址
+  imageDomain: 'http://8.166.131.238:8000', // 图片预览域名
   pageSize: 10, // 每页默认条数
   refreshTime: 0 // 自动刷新时间（分钟）
 })
 
+// 当前激活的菜单
+const activeMenu = computed(() => {
+  return route.path || '/students'
+})
+
+// 检查用户是否有指定权限
+const hasPermission = (permission) => {
+  return userInfo.value.permissions?.includes(permission) || false
+}
+
 // 页面初始化
 onMounted(() => {
+  // 从本地存储加载用户信息
+  loadUserInfo()
+  
   // 从本地存储加载系统设置
   const savedSetting = localStorage.getItem('systemSetting')
   if (savedSetting) {
@@ -197,6 +236,18 @@ onMounted(() => {
   })
 })
 
+// 从本地存储加载用户信息
+const loadUserInfo = () => {
+  const savedUserInfo = localStorage.getItem('userInfo')
+  if (savedUserInfo) {
+    try {
+      userInfo.value = JSON.parse(savedUserInfo)
+    } catch (err) {
+      console.error('加载用户信息失败：', err)
+    }
+  }
+}
+
 // 监听刷新时间变化，重新设置自动刷新
 watch(
   () => systemForm.value.refreshTime,
@@ -204,27 +255,6 @@ watch(
     setupAutoRefresh()
   }
 )
-
-// 菜单选择事件
-const handleMenuSelect = (index) => {
-  // 根据菜单索引跳转对应路由
-  switch (index) {
-    case '1':
-      router.push('/achievements')
-      break
-    case '2':
-      router.push('/students')
-      break
-    case '3':
-      router.push('/statistics')
-      break
-    case '4':
-      router.push('/settings')
-      break
-    default:
-      router.push('/achievements')
-  }
-}
 
 // 退出登录
 const handleLogout = () => {
@@ -240,8 +270,9 @@ const handleLogout = () => {
     // 清除本地存储
     localStorage.removeItem('systemSetting')
     localStorage.removeItem('token')
+    localStorage.removeItem('userInfo')
     
-    // 跳转到登录页（如果有）
+    // 跳转到登录页
     router.push('/login')
     ElMessage.success('退出登录成功')
   }).catch(() => {
@@ -284,8 +315,8 @@ const setupAutoRefresh = () => {
     const refreshMs = refreshMinutes * 60 * 1000
     refreshTimer = setInterval(() => {
       // 刷新当前页面数据（通过路由重新加载）
-      if (router.currentRoute.name === 'AchievementList') {
-        // 触发成果列表页面的刷新
+      if (router.currentRoute.name === 'StudentList') {
+        // 触发学生列表页面的刷新
         window.dispatchEvent(new CustomEvent('autoRefresh'))
         ElMessage.info(`自动刷新数据（每${refreshMinutes}分钟）`)
       }

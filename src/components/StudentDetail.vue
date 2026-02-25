@@ -70,10 +70,10 @@
               <el-image 
                 v-for="(img, imgIndex) in paper.images" 
                 :key="imgIndex"
-                :src="img" 
+                :src="getImageUrl(img)" 
                 fit="cover"
                 class="preview-image"
-                preview-src-list="paper.images"
+                :preview-src-list="paper.images.map(img => getImageUrl(img))"
                 :preview-index="imgIndex"
               ></el-image>
             </div>
@@ -95,10 +95,10 @@
               <el-image 
                 v-for="(img, imgIndex) in policy.images" 
                 :key="imgIndex"
-                :src="img" 
+                :src="getImageUrl(img)" 
                 fit="cover"
                 class="preview-image"
-                preview-src-list="policy.images"
+                :preview-src-list="policy.images.map(img => getImageUrl(img))"
                 :preview-index="imgIndex"
               ></el-image>
             </div>
@@ -120,10 +120,10 @@
               <el-image 
                 v-for="(img, imgIndex) in academic.images" 
                 :key="imgIndex"
-                :src="img" 
+                :src="getImageUrl(img)" 
                 fit="cover"
                 class="preview-image"
-                preview-src-list="academic.images"
+                :preview-src-list="academic.images.map(img => getImageUrl(img))"
                 :preview-index="imgIndex"
               ></el-image>
             </div>
@@ -145,10 +145,10 @@
               <el-image 
                 v-for="(img, imgIndex) in volunteer.images" 
                 :key="imgIndex"
-                :src="img" 
+                :src="getImageUrl(img)" 
                 fit="cover"
                 class="preview-image"
-                preview-src-list="volunteer.images"
+                :preview-src-list="volunteer.images.map(img => getImageUrl(img))"
                 :preview-index="imgIndex"
               ></el-image>
             </div>
@@ -170,10 +170,10 @@
               <el-image 
                 v-for="(img, imgIndex) in award.images" 
                 :key="imgIndex"
-                :src="img" 
+                :src="getImageUrl(img)" 
                 fit="cover"
                 class="preview-image"
-                preview-src-list="award.images"
+                :preview-src-list="award.images.map(img => getImageUrl(img))"
                 :preview-index="imgIndex"
               ></el-image>
             </div>
@@ -250,7 +250,7 @@ const props = defineProps({
 })
 
 // 后端基础地址（替换为你的IP）
-const baseUrl = ref('http://47.98.59.106:8000')
+const baseUrl = ref('http://8.166.131.238:8000')
 const router = useRouter()
 const route = useRoute()
 
@@ -335,6 +335,23 @@ const openAuditDialog = (achievementId) => {
     auditNote: ''
   }
   auditDialogVisible.value = true
+}
+
+// 处理图片路径，确保使用正确的后端基础地址
+const getImageUrl = (imgPath) => {
+  if (!imgPath) return ''
+  
+  // 如果是完整的URL，检查是否包含 localhost:8000
+  if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
+    if (imgPath.includes('localhost:8000')) {
+      // 替换 localhost:8000 为正确的后端地址
+      return imgPath.replace('http://localhost:8000', baseUrl.value)
+    }
+    return imgPath
+  }
+  
+  // 如果是相对路径，拼接完整的URL
+  return `${baseUrl.value}${imgPath.startsWith('/') ? '' : '/'}${imgPath}`
 }
 
 // 提交审核结果
