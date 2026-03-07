@@ -133,39 +133,11 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import axios from 'axios'
 
-// 角色列表数据
-const roles = ref([
-  {
-    id: 1,
-    name: '管理员',
-    description: '系统管理员，拥有所有权限',
-    permissions: ['user:manage', 'role:manage', 'permission:manage', 'student:manage'],
-    createdAt: '2026-01-01 00:00:00'
-  },
-  {
-    id: 2,
-    name: '审核员',
-    description: '负责审核学生成果',
-    permissions: ['student:manage'],
-    createdAt: '2026-01-02 00:00:00'
-  },
-  {
-    id: 3,
-    name: '普通用户',
-    description: '普通系统用户',
-    permissions: [],
-    createdAt: '2026-01-03 00:00:00'
-  }
-])
-
-// 所有权限选项
-const allPermissions = ref([
-  { label: '用户管理', value: 'user:manage' },
-  { label: '角色管理', value: 'role:manage' },
-  { label: '权限管理', value: 'permission:manage' },
-  { label: '学生管理', value: 'student:manage' }
-])
+const baseUrl = ref('https://api.aipro.ren')
+const roles = ref([])
+const allPermissions = ref([])
 
 // 搜索表单
 const searchForm = reactive({
@@ -219,10 +191,42 @@ const filteredRoles = computed(() => {
   return result
 })
 
-// 页面加载时初始化
+const fetchRoles = async () => {
+  try {
+    const res = await axios.get(`${baseUrl.value}/admin/roles`)
+    if (res.data?.code === 200) {
+      roles.value = res.data.data.list || []
+    } else {
+      roles.value = []
+      ElMessage.warning(res.data?.message || '获取角色失败')
+    }
+  } catch (err) {
+    roles.value = []
+    ElMessage.error('获取角色失败，请检查后端服务')
+  }
+}
+
+const fetchPermissions = async () => {
+  try {
+    const res = await axios.get(`${baseUrl.value}/admin/permissions`)
+    if (res.data?.code === 200) {
+      allPermissions.value = (res.data.data.list || []).map(item => ({
+        label: item.name,
+        value: item.key
+      }))
+    } else {
+      allPermissions.value = []
+      ElMessage.warning(res.data?.message || '获取权限失败')
+    }
+  } catch (err) {
+    allPermissions.value = []
+    ElMessage.error('获取权限失败，请检查后端服务')
+  }
+}
+
 onMounted(() => {
-  // 实际项目中这里应该从API获取角色列表和权限数据
-  console.log('RoleList mounted')
+  fetchRoles()
+  fetchPermissions()
 })
 
 // 处理新增角色
@@ -251,26 +255,36 @@ const handleSaveRole = async () => {
   
   await roleFormRef.value.validate(async (valid) => {
     if (valid) {
-      if (!roleForm.id) {
-        // 新增角色
-        const newRole = {
-          id: Date.now(), // 临时生成ID，实际项目中应该由后端生成
-          ...roleForm,
-          permissions: [],
-          createdAt: new Date().toLocaleString('zh-CN')
+      try {
+        if (!roleForm.id) {
+          const res = await axios.post(`${baseUrl.value}/admin/roles`, {
+            name: roleForm.name,
+            description: roleForm.description,
+            permissions: []
+          })
+          if (res.data?.code === 200) {
+            ElMessage.success('角色新增成功')
+            dialogVisible.value = false
+            await fetchRoles()
+          } else {
+            ElMessage.error(res.data?.message || '角色新增失败')
+          }
+        } else {
+          const res = await axios.put(`${baseUrl.value}/admin/roles/${roleForm.id}`, {
+            name: roleForm.name,
+            description: roleForm.description
+          })
+          if (res.data?.code === 200) {
+            ElMessage.success('角色编辑成功')
+            dialogVisible.value = false
+            await fetchRoles()
+          } else {
+            ElMessage.error(res.data?.message || '角色编辑失败')
+          }
         }
-        roles.value.push(newRole)
-        ElMessage.success('角色新增成功')
-      } else {
-        // 编辑角色
-        const index = roles.value.findIndex(r => r.id === roleForm.id)
-        if (index !== -1) {
-          const updatedRole = { ...roles.value[index], ...roleForm }
-          roles.value[index] = updatedRole
-          ElMessage.success('角色编辑成功')
-        }
+      } catch (err) {
+        ElMessage.error('保存角色失败，请检查后端服务')
       }
-      dialogVisible.value = false
     }
   })
 }
@@ -285,11 +299,17 @@ const handleDeleteRole = (roleId) => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    const index = roles.value.findIndex(r => r.id === roleId)
-    if (index !== -1) {
-      roles.value.splice(index, 1)
-      ElMessage.success('角色删除成功')
+  ).then(async () => {
+    try {
+      const res = await axios.delete(`${baseUrl.value}/admin/roles/${roleId}`)
+      if (res.data?.code === 200) {
+        ElMessage.success('角色删除成功')
+        await fetchRoles()
+      } else {
+        ElMessage.error(res.data?.message || '角色删除失败')
+      }
+    } catch (err) {
+      ElMessage.error('角色删除失败，请检查后端服务')
     }
   }).catch(() => {
     ElMessage.info('已取消删除')
@@ -308,12 +328,22 @@ const handleAssignPermission = (role) => {
 }
 
 // 处理保存权限
-const handleSavePermission = () => {
-  const index = roles.value.findIndex(r => r.id === currentRole.value.id)
-  if (index !== -1) {
-    roles.value[index].permissions = [...currentRole.value.permissions]
-    ElMessage.success('权限分配成功')
-    permissionDialogVisible.value = false
+const handleSavePermission = async () => {
+  try {
+    const res = await axios.put(`${baseUrl.value}/admin/roles/${currentRole.value.id}`, {
+      name: currentRole.value.name,
+      description: currentRole.value.description || '',
+      permissions: currentRole.value.permissions || []
+    })
+    if (res.data?.code === 200) {
+      ElMessage.success('权限分配成功')
+      permissionDialogVisible.value = false
+      await fetchRoles()
+    } else {
+      ElMessage.error(res.data?.message || '权限分配失败')
+    }
+  } catch (err) {
+    ElMessage.error('权限分配失败，请检查后端服务')
   }
 }
 

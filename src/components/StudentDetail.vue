@@ -1,247 +1,223 @@
 <template>
   <div class="student-detail-container">
-    <!-- 返回按钮 -->
-    <el-button 
-      type="text" 
-      icon="el-icon-back" 
-      @click="goBack"
-      class="back-btn"
-    >
-      返回学生列表
-    </el-button>
-
-    <!-- 学生基础信息 -->
+    <el-button type="text" icon="el-icon-back" @click="goBack" class="back-btn">返回学生列表</el-button>
     <div class="student-base-info" v-loading="loading">
       <el-descriptions :column="4" border size="large">
-        <el-descriptions-item label="学生学号" :span="1">{{ studentInfo.student_id }}</el-descriptions-item>
-        <el-descriptions-item label="学生姓名" :span="1">{{ studentInfo.name }}</el-descriptions-item>
-        <el-descriptions-item label="提交成果总数" :span="1">
+        <el-descriptions-item label="学生学号">{{ studentInfo.student_id }}</el-descriptions-item>
+        <el-descriptions-item label="学生姓名">{{ studentInfo.name }}</el-descriptions-item>
+        <el-descriptions-item label="提交成果总数">
           <el-tag type="primary">{{ studentInfo.total_achievements || 0 }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="整体审核状态" :span="1">
-          <el-tag 
-            :type="studentInfo.audit_status ? 'success' : 'warning'"
-            size="large"
-          >
-            {{ studentInfo.audit_status ? '已全部审核' : '存在未审核成果' }}
+        <el-descriptions-item label="最新总分">
+          <el-tag :type="studentInfo.latest_overall_score !== null ? 'success' : 'info'">
+            {{ studentInfo.latest_overall_score ?? '待计算' }}
           </el-tag>
         </el-descriptions-item>
       </el-descriptions>
     </div>
 
-    <!-- 成果列表（按提交时间分组） -->
+    <el-alert type="info" :closable="false" style="margin-bottom: 14px">
+      <template #title>
+        审核状态说明：已提交、已审核、待复核（红色）、已复核（黄色）
+      </template>
+    </el-alert>
+
     <div class="achievements-list" v-if="achievements.length">
       <h3 class="list-title">成果提交记录（共 {{ achievements.length }} 条）</h3>
-      
-      <div v-for="(item, index) in achievements" :key="item.id" class="achievement-card">
-        <div class="card-header">
-          <span class="submit-time">提交时间：{{ item.create_time }}</span>
-          <span class="audit-status">
-            审核状态：
-            <el-tag 
-              :type="item.audit_status ? 'success' : 'warning'"
-            >
-              {{ item.audit_status ? '已审核' : '未审核' }}
+      <div v-for="record in achievements" :key="record.id" class="achievement-card">
+        <div class="record-header">
+          <div>提交时间：{{ record.create_time }}</div>
+          <div>
+            <el-tag :type="record.review_completed ? 'success' : 'warning'">
+              {{ record.review_completed ? '已完成逐项审核' : '未完成逐项审核' }}
             </el-tag>
-          </span>
-          <el-button 
-            v-if="!item.audit_status"
-            type="success" 
-            size="small" 
-            @click="openAuditDialog(item.id)"
-            class="audit-btn"
-          >
-            审核该成果
-          </el-button>
-        </div>
-
-        <!-- 论文成果 -->
-        <div class="achievement-section" v-if="item.papers && item.papers.length">
-          <h4 class="section-title">📄 论文成果</h4>
-          <div v-for="paper in item.papers" :key="paper.id" class="item-detail">
-            <el-descriptions :column="3" border>
-              <el-descriptions-item label="标题">{{ paper.title }}</el-descriptions-item>
-              <el-descriptions-item label="发表期刊">{{ paper.journal || '暂无' }}</el-descriptions-item>
-              <el-descriptions-item label="发表日期">{{ paper.publish_date || '暂无' }}</el-descriptions-item>
-            </el-descriptions>
-            <!-- 论文图片 -->
-            <div class="image-group" v-if="paper.images && paper.images.length">
-              <span class="image-label">相关图片：</span>
-              <el-image 
-                v-for="(img, imgIndex) in paper.images" 
-                :key="imgIndex"
-                :src="getImageUrl(img)" 
-                fit="cover"
-                class="preview-image"
-                :preview-src-list="paper.images.map(img => getImageUrl(img))"
-                :preview-index="imgIndex"
-              ></el-image>
-            </div>
+            <el-tag type="primary" style="margin-left: 8px">总分：{{ record.overall_score ?? '待计算' }}</el-tag>
           </div>
         </div>
 
-        <!-- 资政报告 -->
-        <div class="achievement-section" v-if="item.policies && item.policies.length">
-          <h4 class="section-title">📋 资政报告</h4>
-          <div v-for="policy in item.policies" :key="policy.id" class="item-detail">
-            <el-descriptions :column="3" border>
-              <el-descriptions-item label="标题">{{ policy.title }}</el-descriptions-item>
-              <el-descriptions-item label="采纳单位">{{ policy.adopt_unit || '暂无' }}</el-descriptions-item>
-              <el-descriptions-item label="提交日期">{{ policy.submit_date || '暂无' }}</el-descriptions-item>
-            </el-descriptions>
-            <!-- 资政报告图片 -->
-            <div class="image-group" v-if="policy.images && policy.images.length">
-              <span class="image-label">相关图片：</span>
-              <el-image 
-                v-for="(img, imgIndex) in policy.images" 
-                :key="imgIndex"
-                :src="getImageUrl(img)" 
-                fit="cover"
-                class="preview-image"
-                :preview-src-list="policy.images.map(img => getImageUrl(img))"
-                :preview-index="imgIndex"
-              ></el-image>
-            </div>
+        <div class="section" v-if="record.papers?.length">
+          <div class="section-title">
+            <h4>论文成果</h4>
+            <el-button size="small" type="primary" @click="openReviewByType(record, 'paper')">评分/复核</el-button>
           </div>
+          <el-table :data="record.papers" border size="small">
+            <el-table-column prop="title" label="标题" min-width="160" />
+            <el-table-column prop="journal" label="期刊" min-width="140" />
+            <el-table-column prop="publish_date" label="日期" width="120" />
+            <el-table-column label="项目审核状态" width="120">
+              <template #default="{ row }">
+                <el-tag :type="statusTagType(itemStatusLabel(row))">{{ itemStatusLabel(row) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="材料" width="100">
+              <template #default="{ row }">
+                <el-button size="small" @click="openDocumentsDialog(row.documents)">查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
 
-        <!-- 学术交流 -->
-        <div class="achievement-section" v-if="item.academics && item.academics.length">
-          <h4 class="section-title">📚 学术交流</h4>
-          <div v-for="academic in item.academics" :key="academic.id" class="item-detail">
-            <el-descriptions :column="3" border>
-              <el-descriptions-item label="名称">{{ academic.name }}</el-descriptions-item>
-              <el-descriptions-item label="参与类型">{{ academic.participate_type || '暂无' }}</el-descriptions-item>
-              <el-descriptions-item label="交流日期">{{ academic.exchange_date || '暂无' }}</el-descriptions-item>
-            </el-descriptions>
-            <!-- 学术交流图片 -->
-            <div class="image-group" v-if="academic.images && academic.images.length">
-              <span class="image-label">相关图片：</span>
-              <el-image 
-                v-for="(img, imgIndex) in academic.images" 
-                :key="imgIndex"
-                :src="getImageUrl(img)" 
-                fit="cover"
-                class="preview-image"
-                :preview-src-list="academic.images.map(img => getImageUrl(img))"
-                :preview-index="imgIndex"
-              ></el-image>
-            </div>
+        <div class="section" v-if="record.policies?.length">
+          <div class="section-title">
+            <h4>资政报告</h4>
+            <el-button size="small" type="primary" @click="openReviewByType(record, 'policy')">评分/复核</el-button>
           </div>
+          <el-table :data="record.policies" border size="small">
+            <el-table-column prop="title" label="标题" min-width="160" />
+            <el-table-column prop="adopt_unit" label="采纳单位" min-width="140" />
+            <el-table-column prop="submit_date" label="日期" width="120" />
+            <el-table-column label="项目审核状态" width="120">
+              <template #default="{ row }">
+                <el-tag :type="statusTagType(itemStatusLabel(row))">{{ itemStatusLabel(row) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="材料" width="100">
+              <template #default="{ row }">
+                <el-button size="small" @click="openDocumentsDialog(row.documents)">查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
 
-        <!-- 志愿服务 -->
-        <div class="achievement-section" v-if="item.volunteers && item.volunteers.length">
-          <h4 class="section-title">🤝 志愿服务</h4>
-          <div v-for="volunteer in item.volunteers" :key="volunteer.id" class="item-detail">
-            <el-descriptions :column="3" border>
-              <el-descriptions-item label="项目名称">{{ volunteer.project_name }}</el-descriptions-item>
-              <el-descriptions-item label="服务时长">{{ volunteer.hours }} 小时</el-descriptions-item>
-              <el-descriptions-item label="服务日期">{{ volunteer.service_date || '暂无' }}</el-descriptions-item>
-            </el-descriptions>
-            <!-- 志愿服务图片 -->
-            <div class="image-group" v-if="volunteer.images && volunteer.images.length">
-              <span class="image-label">相关图片：</span>
-              <el-image 
-                v-for="(img, imgIndex) in volunteer.images" 
-                :key="imgIndex"
-                :src="getImageUrl(img)" 
-                fit="cover"
-                class="preview-image"
-                :preview-src-list="volunteer.images.map(img => getImageUrl(img))"
-                :preview-index="imgIndex"
-              ></el-image>
-            </div>
+        <div class="section" v-if="record.academics?.length">
+          <div class="section-title">
+            <h4>学术交流</h4>
+            <el-button size="small" type="primary" @click="openReviewByType(record, 'academic')">评分/复核</el-button>
           </div>
+          <el-table :data="record.academics" border size="small">
+            <el-table-column prop="name" label="名称" min-width="160" />
+            <el-table-column prop="participate_type" label="参与类型" min-width="120" />
+            <el-table-column prop="exchange_date" label="日期" width="120" />
+            <el-table-column label="项目审核状态" width="120">
+              <template #default="{ row }">
+                <el-tag :type="statusTagType(itemStatusLabel(row))">{{ itemStatusLabel(row) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="材料" width="100">
+              <template #default="{ row }">
+                <el-button size="small" @click="openDocumentsDialog(row.documents)">查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
 
-        <!-- 获奖情况 -->
-        <div class="achievement-section" v-if="item.awards && item.awards.length">
-          <h4 class="section-title">🏆 获奖情况</h4>
-          <div v-for="award in item.awards" :key="award.id" class="item-detail">
-            <el-descriptions :column="3" border>
-              <el-descriptions-item label="奖项名称">{{ award.name }}</el-descriptions-item>
-              <el-descriptions-item label="奖项级别">{{ award.level || '暂无' }}</el-descriptions-item>
-              <el-descriptions-item label="获奖日期">{{ award.award_date || '暂无' }}</el-descriptions-item>
-            </el-descriptions>
-            <!-- 获奖图片 -->
-            <div class="image-group" v-if="award.images && award.images.length">
-              <span class="image-label">相关图片：</span>
-              <el-image 
-                v-for="(img, imgIndex) in award.images" 
-                :key="imgIndex"
-                :src="getImageUrl(img)" 
-                fit="cover"
-                class="preview-image"
-                :preview-src-list="award.images.map(img => getImageUrl(img))"
-                :preview-index="imgIndex"
-              ></el-image>
-            </div>
+        <div class="section" v-if="record.volunteers?.length">
+          <div class="section-title">
+            <h4>志愿服务</h4>
+            <el-button size="small" type="primary" @click="openReviewByType(record, 'volunteer')">评分/复核</el-button>
           </div>
+          <el-table :data="record.volunteers" border size="small">
+            <el-table-column prop="project_name" label="项目名称" min-width="160" />
+            <el-table-column prop="hours" label="服务时长" width="120" />
+            <el-table-column prop="service_date" label="日期" width="120" />
+            <el-table-column label="项目审核状态" width="120">
+              <template #default="{ row }">
+                <el-tag :type="statusTagType(itemStatusLabel(row))">{{ itemStatusLabel(row) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="材料" width="100">
+              <template #default="{ row }">
+                <el-button size="small" @click="openDocumentsDialog(row.documents)">查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
 
-        <!-- 审核备注 -->
-        <div class="audit-note" v-if="item.audit_note">
-          <el-alert 
-            title="审核备注" 
-            :description="item.audit_note" 
-            type="info"
-            show-icon
-            :closable="false"
-          ></el-alert>
+        <div class="section" v-if="record.awards?.length">
+          <div class="section-title">
+            <h4>获奖荣誉</h4>
+            <el-button size="small" type="primary" @click="openReviewByType(record, 'award')">评分/复核</el-button>
+          </div>
+          <el-table :data="record.awards" border size="small">
+            <el-table-column prop="name" label="奖项" min-width="160" />
+            <el-table-column prop="level" label="级别" width="120" />
+            <el-table-column prop="award_date" label="日期" width="120" />
+            <el-table-column label="项目审核状态" width="120">
+              <template #default="{ row }">
+                <el-tag :type="statusTagType(itemStatusLabel(row))">{{ itemStatusLabel(row) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="材料" width="100">
+              <template #default="{ row }">
+                <el-button size="small" @click="openDocumentsDialog(row.documents)">查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <div class="section" v-if="record.customs?.length">
+          <div class="section-title">
+            <h4>自定义成果</h4>
+            <el-button size="small" type="primary" @click="openReviewByType(record, 'custom')">评分/复核</el-button>
+          </div>
+          <el-table :data="record.customs" border size="small">
+            <el-table-column prop="type_name" label="类型" min-width="140" />
+            <el-table-column label="内容" min-width="220">
+              <template #default="{ row }">
+                {{ formatContent(row.content) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="项目审核状态" width="120">
+              <template #default="{ row }">
+                <el-tag :type="statusTagType(itemStatusLabel(row))">{{ itemStatusLabel(row) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="材料" width="100">
+              <template #default="{ row }">
+                <el-button size="small" @click="openDocumentsDialog(row.documents)">查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
       </div>
     </div>
 
-    <!-- 无成果提示 -->
     <div class="empty-tip" v-else>
-      <el-empty description="该学生暂无提交任何成果"></el-empty>
+      <el-empty description="该学生暂无提交任何成果" />
     </div>
 
-    <!-- 审核弹窗 -->
-    <el-dialog 
-      title="成果审核" 
-      v-model="auditDialogVisible" 
-      width="500px"
-      append-to-body
-    >
-      <el-form :model="auditForm" label-width="80px">
-        <el-form-item label="审核结果">
-          <el-radio-group v-model="auditForm.auditStatus">
-            <el-radio :label="true">通过</el-radio>
-            <el-radio :label="false">不通过</el-radio>
-          </el-radio-group>
+    <el-dialog v-model="reviewDialogVisible" title="成果项审核评分" width="520px">
+      <el-form label-width="92px">
+        <el-form-item label="审核评分">
+          <el-input-number v-model="reviewForm.score" :min="0" :max="100" :precision="2" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="审核备注">
-          <el-input 
-            v-model="auditForm.auditNote" 
-            type="textarea" 
-            :rows="4" 
-            placeholder="请输入审核备注（选填）"
-          ></el-input>
+        <el-form-item label="复核评分">
+          <el-input-number v-model="reviewForm.rescore_score" :min="0" :max="100" :precision="2" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="审核意见">
+          <el-input v-model="reviewForm.review_comment" type="textarea" :rows="3" placeholder="请输入审核意见" />
+        </el-form-item>
+        <el-form-item label="复核说明">
+          <el-input v-model="reviewForm.rescore_comment" type="textarea" :rows="3" placeholder="若学生不同意，请填写复核说明" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="auditDialogVisible = false">取消</el-button>
-        <el-button 
-          type="primary" 
-          @click="submitAudit"
-          :loading="auditLoading"
-        >
-          提交审核
-        </el-button>
+        <el-button @click="reviewDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="reviewLoading" @click="submitSingleReview">提交评分</el-button>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="documentDialogVisible" title="佐证材料" width="700px">
+      <el-table :data="currentDocuments" border>
+        <el-table-column prop="file_name" label="文件名" min-width="240" />
+        <el-table-column prop="file_ext" label="类型" width="120" />
+        <el-table-column label="操作" width="160">
+          <template #default="{ row }">
+            <el-link type="primary" :href="toFileUrl(row.download_url)" target="_blank">打开</el-link>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div v-if="!currentDocuments.length" class="empty-docs">暂无材料</div>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, defineProps } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { onMounted, ref, defineProps } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
-// 接收路由参数（学生学号）
 const props = defineProps({
   studentId: {
     type: String,
@@ -249,153 +225,154 @@ const props = defineProps({
   }
 })
 
-// 后端基础地址（替换为你的IP）
-const baseUrl = ref('http://8.166.131.238:8000')
+const baseUrl = ref('https://api.aipro.ren')
 const router = useRouter()
-const route = useRoute()
-
-// 加载状态
 const loading = ref(false)
-
-// 学生基础信息
 const studentInfo = ref({
   student_id: '',
   name: '',
   total_achievements: 0,
-  audit_status: false
+  latest_overall_score: null
 })
-
-// 成果列表
 const achievements = ref([])
-
-// 审核弹窗相关
-const auditDialogVisible = ref(false)
-const currentAuditId = ref(null)
-const auditLoading = ref(false)
-const auditForm = ref({
-  auditStatus: true,
-  auditNote: ''
+const reviewDialogVisible = ref(false)
+const reviewLoading = ref(false)
+const reviewForm = ref({
+  item_type: '',
+  achievement_id: null,
+  score: null,
+  rescore_score: null,
+  review_comment: '',
+  rescore_comment: ''
 })
+const documentDialogVisible = ref(false)
+const currentDocuments = ref([])
 
-// 初始化加载数据
-onMounted(() => {
-  fetchStudentDetail()
-})
+const toFileUrl = (path) => {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  return `${baseUrl.value}${path.startsWith('/') ? path : `/${path}`}`
+}
 
-// 获取学生详情和成果
+const goBack = () => {
+  router.push('/students')
+}
+
+const openDocumentsDialog = (docs) => {
+  currentDocuments.value = docs || []
+  documentDialogVisible.value = true
+}
+
+const openReviewDialog = (itemType, row, achievementId) => {
+  reviewForm.value = {
+    item_type: itemType,
+    achievement_id: achievementId,
+    score: row.review_score,
+    rescore_score: row.rescore_score,
+    review_comment: row.review_comment || '',
+    rescore_comment: row.rescore_comment || ''
+  }
+  reviewDialogVisible.value = true
+}
+
+const getSummaryByType = (record, itemType) => {
+  return (record.type_summaries || []).find((item) => item.type === itemType) || {}
+}
+
+const openReviewByType = (record, itemType) => {
+  const summary = getSummaryByType(record, itemType)
+  openReviewDialog(itemType, summary, record.id)
+}
+
 const fetchStudentDetail = async () => {
+  loading.value = true
   try {
-    loading.value = true
-    
-    // 1. 获取学生基础信息
     const studentRes = await axios.get(`${baseUrl.value}/admin/students/${props.studentId}`)
-    if (studentRes.data && studentRes.data.code === 200) {
+    if (studentRes.data?.code === 200) {
       studentInfo.value = studentRes.data.data
     }
-    
-    // 2. 获取该学生的所有成果
+    achievements.value = []
     const achievementRes = await axios.get(`${baseUrl.value}/admin/achievements`, {
-      params: {
-        student_id: props.studentId,
-        page: 1,
-        size: 100 // 一次性加载该学生所有成果
-      }
+      params: { student_id: props.studentId, page: 1, size: 200 }
     })
-    if (achievementRes.data && achievementRes.data.code === 200) {
-      // 补充成果详情
-      const achievementList = achievementRes.data.data.list || []
-      for (const item of achievementList) {
-        // 获取每条成果的详细数据
+    if (achievementRes.data?.code === 200) {
+      for (const item of achievementRes.data.data.list || []) {
         const detailRes = await axios.get(`${baseUrl.value}/admin/achievements/${item.id}`)
-        if (detailRes.data && detailRes.data.code === 200) {
+        if (detailRes.data?.code === 200) {
           achievements.value.push(detailRes.data.data)
         }
       }
     }
-  } catch (err) {
-    console.error('获取学生详情失败：', err)
+  } catch (error) {
     ElMessage.error('获取详情失败，请重试')
   } finally {
     loading.value = false
   }
 }
 
-// 返回学生列表页
-const goBack = () => {
-  router.push('/students')
-}
-
-// 打开审核弹窗
-const openAuditDialog = (achievementId) => {
-  if (!achievementId) return
-  
-  currentAuditId.value = achievementId
-  auditForm.value = {
-    auditStatus: true,
-    auditNote: ''
+const submitSingleReview = async () => {
+  if (reviewForm.value.score === null || reviewForm.value.score === undefined) {
+    ElMessage.warning('请填写评分')
+    return
   }
-  auditDialogVisible.value = true
-}
-
-// 处理图片路径，确保使用正确的后端基础地址
-const getImageUrl = (imgPath) => {
-  if (!imgPath) return ''
-  
-  // 如果是完整的URL，检查是否包含 localhost:8000
-  if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
-    if (imgPath.includes('localhost:8000')) {
-      // 替换 localhost:8000 为正确的后端地址
-      return imgPath.replace('http://localhost:8000', baseUrl.value)
-    }
-    return imgPath
-  }
-  
-  // 如果是相对路径，拼接完整的URL
-  return `${baseUrl.value}${imgPath.startsWith('/') ? '' : '/'}${imgPath}`
-}
-
-// 提交审核结果
-const submitAudit = async () => {
+  reviewLoading.value = true
   try {
-    if (!currentAuditId.value) {
-      ElMessage.warning('请选择要审核的成果')
-      return
-    }
-    
-    auditLoading.value = true
-    
-    // 调用审核接口
     const res = await axios.post(
-      `${baseUrl.value}/admin/achievements/${currentAuditId.value}/audit`,
+      `${baseUrl.value}/admin/review-type/${reviewForm.value.achievement_id}/${reviewForm.value.item_type}`,
       {
-        audit_status: auditForm.value.auditStatus,
-        audit_note: auditForm.value.auditNote
+        score: reviewForm.value.score,
+        rescore_score: reviewForm.value.rescore_score,
+        review_comment: reviewForm.value.review_comment,
+        rescore_comment: reviewForm.value.rescore_comment
       }
     )
-    
-    if (res.data && res.data.code === 200) {
-      ElMessage.success('审核成功')
-      auditDialogVisible.value = false
-      // 刷新当前页面数据
-      achievements.value = []
-      fetchStudentDetail()
-    } else {
-      ElMessage.error(res.data?.message || '审核失败')
+    if (res.data?.code === 200) {
+      ElMessage.success('评分成功')
+      reviewDialogVisible.value = false
+      await fetchStudentDetail()
+      return
     }
-  } catch (err) {
-    console.error('提交审核失败：', err)
-    ElMessage.error('审核失败，请重试')
+    ElMessage.error(res.data?.message || '评分失败')
+  } catch (error) {
+    ElMessage.error('评分失败，请稍后重试')
   } finally {
-    auditLoading.value = false
+    reviewLoading.value = false
   }
 }
+
+const statusTagType = (auditStatus) => {
+  if (auditStatus === '已审核') return 'success'
+  if (auditStatus === '待复核') return 'danger'
+  if (auditStatus === '已复核') return 'warning'
+  return 'info'
+}
+
+const itemStatusLabel = (item) => {
+  if (!item) return '已提交'
+  if (item.student_agree === false) {
+    return ((item.review_status || '') === 'rescored' && (item.rescore_comment || '').trim()) ? '已复核' : '待复核'
+  }
+  if (item.review_score !== null && item.review_score !== undefined) return '已审核'
+  if (['reviewed', 'agreed', 'rescored'].includes(item.review_status || '')) return '已审核'
+  return '已提交'
+}
+
+const formatContent = (obj) => {
+  if (!obj || typeof obj !== 'object') return ''
+  const entries = Object.entries(obj).filter(([k, v]) => v !== null && v !== undefined && String(v).trim() !== '')
+  return entries.map(([k, v]) => `${k}: ${v}`).join('；')
+}
+
+onMounted(() => {
+  fetchStudentDetail()
+})
 </script>
 
 <style scoped>
 .student-detail-container {
-  max-width: 1400px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 20px;
+  padding: 16px;
 }
 
 .back-btn {
@@ -407,91 +384,52 @@ const submitAudit = async () => {
 }
 
 .list-title {
-  font-size: 18px;
-  color: #2c3e50;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #409eff;
+  margin-bottom: 16px;
 }
 
 .achievement-card {
-  background-color: #fff;
+  background: #fff;
   border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  padding: 16px;
+  margin-bottom: 16px;
 }
 
-.card-header {
+.record-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
-  border-bottom: 1px dashed #eee;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
-.submit-time {
-  font-weight: 600;
-  color: #666;
+.section {
+  margin-bottom: 16px;
 }
 
-.audit-status {
-  margin-right: 10px;
-}
-
-.audit-btn {
-  margin-left: auto;
+.section h4 {
+  margin: 0 0 8px;
 }
 
 .section-title {
-  font-size: 16px;
-  color: #409eff;
-  margin: 15px 0 10px 0;
-}
-
-.item-detail {
-  margin-bottom: 15px;
-}
-
-.image-group {
-  margin-top: 10px;
   display: flex;
-  flex-wrap: wrap;
+  justify-content: space-between;
   align-items: center;
-}
-
-.image-label {
-  color: #666;
-  margin-right: 10px;
-  white-space: nowrap;
-}
-
-.preview-image {
-  width: 100px;
-  height: 100px;
-  margin: 0 10px 10px 0;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.audit-note {
-  margin-top: 15px;
+  margin-bottom: 8px;
 }
 
 .empty-tip {
-  padding: 50px 0;
-  text-align: center;
+  padding: 40px 0;
 }
 
-/* 滚动条优化 */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.empty-docs {
+  margin-top: 12px;
+  color: #909399;
 }
 
-::-webkit-scrollbar-thumb {
-  background-color: #ccc;
-  border-radius: 3px;
+.student-detail-container :deep(.el-table .cell) {
+  white-space: normal;
+  word-break: break-word;
 }
+
 </style>

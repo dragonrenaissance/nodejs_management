@@ -44,11 +44,29 @@ const routes = [
     name: 'PermissionList',
     component: () => import('../components/PermissionList.vue'),
     meta: { title: '权限管理', requireAuth: true, permissions: ['permission:manage'] }
+  },
+  {
+    path: '/whitelist-students',
+    name: 'WhitelistStudents',
+    component: () => import('../components/WhitelistStudents.vue'),
+    meta: { title: '白名单学生', requireAuth: true, permissions: ['student:manage'] }
+  },
+  {
+    path: '/score-formula',
+    name: 'ScoreFormula',
+    component: () => import('../components/ScoreFormula.vue'),
+    meta: { title: '评分公式', requireAuth: true, permissions: ['student:manage'] }
+  },
+  {
+    path: '/achievement-types',
+    name: 'AchievementTypeConfig',
+    component: () => import('../components/AchievementTypeConfig.vue'),
+    meta: { title: '成果类型管理', requireAuth: true, permissions: ['student:manage'] }
   }
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 

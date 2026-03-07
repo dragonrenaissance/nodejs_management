@@ -6,6 +6,9 @@
       <el-container class="app-container">
         <el-header class="app-header">
           <div class="header-left">
+            <el-button type="text" class="collapse-btn" @click="isCollapse = !isCollapse">
+              <i :class="isCollapse ? 'el-icon-s-unfold' : 'el-icon-s-fold'"></i>
+            </el-button>
             <h1 class="system-title">学生成果提交与审核管理系统</h1>
           </div>
           <div class="header-right">
@@ -38,7 +41,7 @@
 
         <el-container>
           <!-- 侧边导航栏 -->
-          <el-aside width="200px" class="app-aside">
+          <el-aside :width="isCollapse ? '64px' : '200px'" class="app-aside">
             <el-menu
               :default-active="activeMenu"
               class="el-menu-vertical-demo"
@@ -83,6 +86,33 @@
                   <i class="el-icon-lock"></i>
                 </template>
                 <span>权限管理</span>
+              </el-menu-item>
+              <el-menu-item
+                v-if="hasPermission('student:manage')"
+                index="/whitelist-students"
+              >
+                <template #icon>
+                  <i class="el-icon-circle-check"></i>
+                </template>
+                <span>白名单学生</span>
+              </el-menu-item>
+              <el-menu-item
+                v-if="hasPermission('student:manage')"
+                index="/score-formula"
+              >
+                <template #icon>
+                  <i class="el-icon-data-analysis"></i>
+                </template>
+                <span>评分公式</span>
+              </el-menu-item>
+              <el-menu-item
+                v-if="hasPermission('student:manage')"
+                index="/achievement-types"
+              >
+                <template #icon>
+                  <i class="el-icon-tickets"></i>
+                </template>
+                <span>成果类型管理</span>
               </el-menu-item>
             </el-menu>
           </el-aside>
@@ -186,8 +216,8 @@ const userInfo = ref({
 
 // 系统设置表单
 const systemForm = ref({
-  baseUrl: 'http://8.166.131.238:8000', // 后端接口地址
-  imageDomain: 'http://8.166.131.238:8000', // 图片预览域名
+  baseUrl: 'https://api.aipro.ren',
+  imageDomain: 'https://api.aipro.ren',
   pageSize: 10, // 每页默认条数
   refreshTime: 0 // 自动刷新时间（分钟）
 })
@@ -201,6 +231,14 @@ const activeMenu = computed(() => {
 const hasPermission = (permission) => {
   return userInfo.value.permissions?.includes(permission) || false
 }
+
+// 监听路由变化，更新用户信息（解决登录后菜单不刷新的问题）
+watch(
+  () => route.path,
+  () => {
+    loadUserInfo()
+  }
+)
 
 // 页面初始化
 onMounted(() => {
@@ -236,15 +274,40 @@ onMounted(() => {
   })
 })
 
-// 从本地存储加载用户信息
-const loadUserInfo = () => {
+// 从本地存储加载用户信息，并检查是否需要从服务器获取最新权限
+const loadUserInfo = async () => {
   const savedUserInfo = localStorage.getItem('userInfo')
-  if (savedUserInfo) {
+  const token = localStorage.getItem('token')
+  
+  if (savedUserInfo && token) {
     try {
       userInfo.value = JSON.parse(savedUserInfo)
+      
+      // 如果用户信息中没有权限数据或权限为空，从服务器获取最新权限
+      if (!userInfo.value.permissions || userInfo.value.permissions.length === 0) {
+        await fetchUserPermissions()
+      }
     } catch (err) {
       console.error('加载用户信息失败：', err)
     }
+  }
+}
+
+// 从服务器获取用户权限信息
+const fetchUserPermissions = async () => {
+  try {
+    const response = await axios.get('/auth/user-info')
+    if (response.data.code === 200 && response.data.data) {
+      const userData = response.data.data
+      userInfo.value = {
+        ...userInfo.value,
+        permissions: userData.permissions || []
+      }
+      // 更新本地存储的用户信息
+      localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+    }
+  } catch (error) {
+    console.error('获取用户权限失败：', error)
   }
 }
 
@@ -377,6 +440,10 @@ axios.interceptors.response.use(
   flex-direction: column;
 }
 
+.app-container > .el-container {
+  min-height: 0;
+}
+
 /* 头部样式 */
 .app-header {
   background-color: #2e3b4e;
@@ -399,6 +466,17 @@ axios.interceptors.response.use(
   display: flex;
   align-items: center;
   gap: 20px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.collapse-btn {
+  color: #fff;
+  font-size: 18px;
 }
 
 .user-info {
@@ -425,6 +503,7 @@ axios.interceptors.response.use(
   padding: 20px;
   background-color: #f5f7fa;
   overflow-y: auto;
+  min-height: 0;
 }
 
 /* 页脚样式 */
@@ -511,7 +590,7 @@ axios.interceptors.response.use(
 
 html, body {
   height: 100%;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 /* 修复Element Plus样式 */

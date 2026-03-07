@@ -23,7 +23,7 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 }
 
 // 6. 配置 axios 全局默认值
-axios.defaults.baseURL = 'http://8.166.131.238:8000' // 替换为你的后端IP
+axios.defaults.baseURL = 'https://api.aipro.ren'
 axios.defaults.timeout = 10000 // 请求超时时间
 axios.defaults.headers.post['Content-Type'] = 'application/json'
 

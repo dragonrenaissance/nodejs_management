@@ -104,38 +104,10 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import axios from 'axios'
 
-// 权限列表数据
-const permissions = ref([
-  {
-    id: 1,
-    name: '用户管理',
-    key: 'user:manage',
-    description: '管理系统用户，包括新增、编辑、删除用户等操作',
-    createdAt: '2026-01-01 00:00:00'
-  },
-  {
-    id: 2,
-    name: '角色管理',
-    key: 'role:manage',
-    description: '管理系统角色，包括新增、编辑、删除角色和分配权限等操作',
-    createdAt: '2026-01-01 00:00:00'
-  },
-  {
-    id: 3,
-    name: '权限管理',
-    key: 'permission:manage',
-    description: '管理系统权限，包括新增、编辑、删除权限等操作',
-    createdAt: '2026-01-01 00:00:00'
-  },
-  {
-    id: 4,
-    name: '学生管理',
-    key: 'student:manage',
-    description: '管理学生信息，包括查看学生列表、审核学生成果等操作',
-    createdAt: '2026-01-01 00:00:00'
-  }
-])
+const baseUrl = ref('https://api.aipro.ren')
+const permissions = ref([])
 
 // 搜索表单
 const searchForm = reactive({
@@ -193,10 +165,23 @@ const filteredPermissions = computed(() => {
   return result
 })
 
-// 页面加载时初始化
+const fetchPermissions = async () => {
+  try {
+    const res = await axios.get(`${baseUrl.value}/admin/permissions`)
+    if (res.data?.code === 200) {
+      permissions.value = res.data.data.list || []
+    } else {
+      permissions.value = []
+      ElMessage.warning(res.data?.message || '获取权限失败')
+    }
+  } catch (err) {
+    permissions.value = []
+    ElMessage.error('获取权限失败，请检查后端服务')
+  }
+}
+
 onMounted(() => {
-  // 实际项目中这里应该从API获取权限列表数据
-  console.log('PermissionList mounted')
+  fetchPermissions()
 })
 
 // 处理新增权限
@@ -226,24 +211,37 @@ const handleSavePermission = async () => {
   
   await permissionFormRef.value.validate(async (valid) => {
     if (valid) {
-      if (!permissionForm.id) {
-        // 新增权限
-        const newPermission = {
-          id: Date.now(), // 临时生成ID，实际项目中应该由后端生成
-          ...permissionForm,
-          createdAt: new Date().toLocaleString('zh-CN')
+      try {
+        if (!permissionForm.id) {
+          const res = await axios.post(`${baseUrl.value}/admin/permissions`, {
+            name: permissionForm.name,
+            key: permissionForm.key,
+            description: permissionForm.description
+          })
+          if (res.data?.code === 200) {
+            ElMessage.success('权限新增成功')
+            dialogVisible.value = false
+            await fetchPermissions()
+          } else {
+            ElMessage.error(res.data?.message || '权限新增失败')
+          }
+        } else {
+          const res = await axios.put(`${baseUrl.value}/admin/permissions/${permissionForm.id}`, {
+            name: permissionForm.name,
+            key: permissionForm.key,
+            description: permissionForm.description
+          })
+          if (res.data?.code === 200) {
+            ElMessage.success('权限编辑成功')
+            dialogVisible.value = false
+            await fetchPermissions()
+          } else {
+            ElMessage.error(res.data?.message || '权限编辑失败')
+          }
         }
-        permissions.value.push(newPermission)
-        ElMessage.success('权限新增成功')
-      } else {
-        // 编辑权限
-        const index = permissions.value.findIndex(p => p.id === permissionForm.id)
-        if (index !== -1) {
-          permissions.value[index] = { ...permissionForm }
-          ElMessage.success('权限编辑成功')
-        }
+      } catch (err) {
+        ElMessage.error('保存权限失败，请检查后端服务')
       }
-      dialogVisible.value = false
     }
   })
 }
@@ -258,11 +256,17 @@ const handleDeletePermission = (permissionId) => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    const index = permissions.value.findIndex(p => p.id === permissionId)
-    if (index !== -1) {
-      permissions.value.splice(index, 1)
-      ElMessage.success('权限删除成功')
+  ).then(async () => {
+    try {
+      const res = await axios.delete(`${baseUrl.value}/admin/permissions/${permissionId}`)
+      if (res.data?.code === 200) {
+        ElMessage.success('权限删除成功')
+        await fetchPermissions()
+      } else {
+        ElMessage.error(res.data?.message || '权限删除失败')
+      }
+    } catch (err) {
+      ElMessage.error('权限删除失败，请检查后端服务')
     }
   }).catch(() => {
     ElMessage.info('已取消删除')

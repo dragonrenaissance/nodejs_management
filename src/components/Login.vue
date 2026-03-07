@@ -21,9 +21,11 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
 const router = useRouter()
 const loginFormRef = ref(null)
+const baseUrl = ref('https://api.aipro.ren')
 
 const loginForm = reactive({
   username: '',
@@ -44,23 +46,34 @@ const handleLogin = async () => {
   
   await loginFormRef.value.validate(async (valid) => {
     if (valid) {
-      // 模拟登录请求
-      // 实际项目中应该调用真实的登录接口
-      if (loginForm.username === 'admin' && loginForm.password === '123456') {
-        // 登录成功，保存用户信息和token到本地存储
-        const userInfo = {
-          id: 1,
-          username: 'admin',
-          role: 'admin',
-          permissions: ['user:manage', 'role:manage', 'permission:manage', 'student:manage']
+      try {
+        const res = await axios.post(`${baseUrl.value}/admin/login`, {
+          username: loginForm.username,
+          password: loginForm.password
+        })
+        if (res.data?.success) {
+          const userInfo = { ...(res.data.user || {}) }
+          try {
+            const permissionRes = await axios.get(`${baseUrl.value}/auth/user-info`, {
+              headers: {
+                Authorization: `Bearer ${res.data.token || ''}`
+              }
+            })
+            if (permissionRes.data?.code === 200 && permissionRes.data?.data) {
+              userInfo.permissions = permissionRes.data.data.permissions || []
+            }
+          } catch (error) {
+            userInfo.permissions = userInfo.permissions || []
+          }
+          localStorage.setItem('userInfo', JSON.stringify(userInfo))
+          localStorage.setItem('token', res.data.token || '')
+          ElMessage.success('登录成功')
+          router.replace('/students')
+        } else {
+          ElMessage.error(res.data?.message || '登录失败')
         }
-        localStorage.setItem('userInfo', JSON.stringify(userInfo))
-        localStorage.setItem('token', 'mock-token')
-        
-        ElMessage.success('登录成功')
-        router.push('/students')
-      } else {
-        ElMessage.error('用户名或密码错误')
+      } catch (err) {
+        ElMessage.error('登录失败，请检查后端服务')
       }
     }
   })

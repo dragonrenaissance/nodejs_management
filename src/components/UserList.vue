@@ -20,10 +20,13 @@
             <el-input v-model="searchForm.username" placeholder="请输入用户名" style="width: 180px" />
           </el-form-item>
           <el-form-item label="角色">
-            <el-select v-model="searchForm.role" placeholder="请选择角色" style="width: 120px">
-              <el-option label="管理员" value="admin" />
-              <el-option label="审核员" value="reviewer" />
-              <el-option label="普通用户" value="user" />
+            <el-select v-model="searchForm.role_id" placeholder="请选择角色" style="width: 120px">
+              <el-option
+                v-for="role in roles"
+                :key="role.id"
+                :label="role.name"
+                :value="role.id"
+              />
             </el-select>
           </el-form-item>
           <el-form-item>
@@ -38,10 +41,10 @@
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="username" label="用户名" width="180" />
         <el-table-column prop="name" label="姓名" width="120" />
-        <el-table-column prop="role" label="角色" width="120">
+        <el-table-column prop="role_name" label="角色" width="120">
           <template #default="scope">
-            <el-tag :type="getRoleType(scope.row.role)">
-              {{ getRoleName(scope.row.role) }}
+            <el-tag :type="getRoleType(scope.row.role_name)">
+              {{ getRoleName(scope.row.role_name) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -108,11 +111,14 @@
         <el-form-item label="密码" :prop="dialogType === 'add' ? 'password' : ''">
           <el-input v-model="userForm.password" type="password" placeholder="请输入密码" show-password />
         </el-form-item>
-        <el-form-item label="角色" prop="role">
-          <el-select v-model="userForm.role" placeholder="请选择角色">
-            <el-option label="管理员" value="admin" />
-            <el-option label="审核员" value="reviewer" />
-            <el-option label="普通用户" value="user" />
+        <el-form-item label="角色" prop="role_id">
+          <el-select v-model="userForm.role_id" placeholder="请选择角色">
+            <el-option
+              v-for="role in roles"
+              :key="role.id"
+              :label="role.name"
+              :value="role.id"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
@@ -130,42 +136,16 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import axios from 'axios'
 
-// 用户列表数据
-const users = ref([
-  {
-    id: 1,
-    username: 'admin',
-    name: '管理员',
-    role: 'admin',
-    email: 'admin@example.com',
-    createdAt: '2026-01-01 00:00:00',
-    status: true
-  },
-  {
-    id: 2,
-    username: 'reviewer',
-    name: '审核员',
-    role: 'reviewer',
-    email: 'reviewer@example.com',
-    createdAt: '2026-01-02 00:00:00',
-    status: true
-  },
-  {
-    id: 3,
-    username: 'user1',
-    name: '普通用户1',
-    role: 'user',
-    email: 'user1@example.com',
-    createdAt: '2026-01-03 00:00:00',
-    status: true
-  }
-])
+const baseUrl = ref('https://api.aipro.ren')
+const users = ref([])
+const roles = ref([])
 
 // 搜索表单
 const searchForm = reactive({
   username: '',
-  role: ''
+  role_id: ''
 })
 
 // 分页数据
@@ -183,7 +163,7 @@ const userForm = reactive({
   username: '',
   name: '',
   password: '',
-  role: '',
+  role_id: '',
   email: ''
 })
 
@@ -198,7 +178,7 @@ const userRules = {
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' }
   ],
-  role: [
+  role_id: [
     { required: true, message: '请选择角色', trigger: 'blur' }
   ],
   email: [
@@ -219,29 +199,58 @@ const filteredUsers = computed(() => {
   }
   
   // 按角色筛选
-  if (searchForm.role) {
+  if (searchForm.role_id) {
     result = result.filter(user => 
-      user.role === searchForm.role
+      user.role_id === searchForm.role_id
     )
   }
   
   return result
 })
 
-// 页面加载时初始化
+const fetchRoles = async () => {
+  try {
+    const res = await axios.get(`${baseUrl.value}/admin/roles`)
+    if (res.data?.code === 200) {
+      roles.value = res.data.data.list || []
+    } else {
+      roles.value = []
+      ElMessage.warning(res.data?.message || '获取角色失败')
+    }
+  } catch (err) {
+    roles.value = []
+    ElMessage.error('获取角色失败，请检查后端服务')
+  }
+}
+
+const fetchUsers = async () => {
+  try {
+    const res = await axios.get(`${baseUrl.value}/admin/users`)
+    if (res.data?.code === 200) {
+      users.value = res.data.data.list || []
+    } else {
+      users.value = []
+      ElMessage.warning(res.data?.message || '获取用户失败')
+    }
+  } catch (err) {
+    users.value = []
+    ElMessage.error('获取用户失败，请检查后端服务')
+  }
+}
+
 onMounted(() => {
-  // 实际项目中这里应该从API获取用户列表数据
-  console.log('UserList mounted')
+  fetchRoles()
+  fetchUsers()
 })
 
 // 获取角色类型，用于显示不同颜色的标签
-const getRoleType = (role) => {
-  switch (role) {
-    case 'admin':
+const getRoleType = (roleName) => {
+  switch (roleName) {
+    case '管理员':
       return 'danger'
-    case 'reviewer':
+    case '审核员':
       return 'warning'
-    case 'user':
+    case '普通用户':
       return 'success'
     default:
       return 'info'
@@ -249,18 +258,7 @@ const getRoleType = (role) => {
 }
 
 // 获取角色名称
-const getRoleName = (role) => {
-  switch (role) {
-    case 'admin':
-      return '管理员'
-    case 'reviewer':
-      return '审核员'
-    case 'user':
-      return '普通用户'
-    default:
-      return role
-  }
-}
+const getRoleName = (roleName) => roleName || ''
 
 // 处理新增用户
 const handleAddUser = () => {
@@ -272,7 +270,7 @@ const handleAddUser = () => {
     username: '',
     name: '',
     password: '',
-    role: '',
+    role_id: '',
     email: ''
   })
   dialogVisible.value = true
@@ -295,30 +293,44 @@ const handleSaveUser = async () => {
   
   await userFormRef.value.validate(async (valid) => {
     if (valid) {
-      if (dialogType.value === 'add') {
-        // 新增用户
-        const newUser = {
-          id: Date.now(), // 临时生成ID，实际项目中应该由后端生成
-          ...userForm,
-          createdAt: new Date().toLocaleString('zh-CN'),
-          status: true
-        }
-        users.value.push(newUser)
-        ElMessage.success('用户新增成功')
-      } else {
-        // 编辑用户
-        const index = users.value.findIndex(u => u.id === userForm.id)
-        if (index !== -1) {
-          // 只更新修改的字段，不包括密码（如果为空）
-          const updatedUser = { ...users.value[index], ...userForm }
-          if (!userForm.password) {
-            delete updatedUser.password
+      try {
+        if (dialogType.value === 'add') {
+          const res = await axios.post(`${baseUrl.value}/admin/users`, {
+            username: userForm.username,
+            name: userForm.name,
+            password: userForm.password,
+            role_id: userForm.role_id,
+            email: userForm.email
+          })
+          if (res.data?.code === 200) {
+            ElMessage.success('用户新增成功')
+            dialogVisible.value = false
+            await fetchUsers()
+          } else {
+            ElMessage.error(res.data?.message || '用户新增失败')
           }
-          users.value[index] = updatedUser
-          ElMessage.success('用户编辑成功')
+        } else {
+          const payload = {
+            username: userForm.username,
+            name: userForm.name,
+            role_id: userForm.role_id,
+            email: userForm.email
+          }
+          if (userForm.password) {
+            payload.password = userForm.password
+          }
+          const res = await axios.put(`${baseUrl.value}/admin/users/${userForm.id}`, payload)
+          if (res.data?.code === 200) {
+            ElMessage.success('用户编辑成功')
+            dialogVisible.value = false
+            await fetchUsers()
+          } else {
+            ElMessage.error(res.data?.message || '用户编辑失败')
+          }
         }
+      } catch (err) {
+        ElMessage.error('保存用户失败，请检查后端服务')
       }
-      dialogVisible.value = false
     }
   })
 }
@@ -333,11 +345,17 @@ const handleDeleteUser = (userId) => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    const index = users.value.findIndex(u => u.id === userId)
-    if (index !== -1) {
-      users.value.splice(index, 1)
-      ElMessage.success('用户删除成功')
+  ).then(async () => {
+    try {
+      const res = await axios.delete(`${baseUrl.value}/admin/users/${userId}`)
+      if (res.data?.code === 200) {
+        ElMessage.success('用户删除成功')
+        await fetchUsers()
+      } else {
+        ElMessage.error(res.data?.message || '用户删除失败')
+      }
+    } catch (err) {
+      ElMessage.error('用户删除失败，请检查后端服务')
     }
   }).catch(() => {
     ElMessage.info('已取消删除')
@@ -345,8 +363,23 @@ const handleDeleteUser = (userId) => {
 }
 
 // 处理用户状态变更
-const handleStatusChange = (user) => {
-  ElMessage.success(`用户 ${user.username} 状态已更新为 ${user.status ? '启用' : '禁用'}`)
+const handleStatusChange = async (user) => {
+  try {
+    const res = await axios.put(`${baseUrl.value}/admin/users/${user.id}`, {
+      username: user.username,
+      name: user.name,
+      role_id: user.role_id,
+      email: user.email,
+      is_active: user.status
+    })
+    if (res.data?.code === 200) {
+      ElMessage.success(`用户 ${user.username} 状态已更新为 ${user.status ? '启用' : '禁用'}`)
+    } else {
+      ElMessage.error(res.data?.message || '更新状态失败')
+    }
+  } catch (err) {
+    ElMessage.error('更新状态失败，请检查后端服务')
+  }
 }
 
 // 处理搜索
@@ -358,7 +391,7 @@ const handleSearch = () => {
 const resetSearch = () => {
   Object.assign(searchForm, {
     username: '',
-    role: ''
+    role_id: ''
   })
   currentPage.value = 1
 }

@@ -20,8 +20,10 @@
       </el-form-item>
       <el-form-item label="审核状态">
         <el-select v-model="searchForm.auditStatus" placeholder="全部" clearable>
-          <el-option label="未审核" :value="false"></el-option>
-          <el-option label="已审核" :value="true"></el-option>
+          <el-option label="已提交" value="已提交"></el-option>
+          <el-option label="已审核" value="已审核"></el-option>
+          <el-option label="待复核" value="待复核"></el-option>
+          <el-option label="已复核" value="已复核"></el-option>
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -49,10 +51,10 @@
       <el-table-column prop="audit_status" label="审核状态" width="120" align="center">
         <template #default="scope">
           <el-tag 
-            :type="scope.row.audit_status ? 'success' : 'warning'"
+            :type="statusTagType(scope.row.audit_status)"
             size="small"
           >
-            {{ scope.row.audit_status ? '已审核' : '未审核' }}
+            {{ scope.row.audit_status || '已提交' }}
           </el-tag>
         </template>
       </el-table-column>
@@ -92,7 +94,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
 // 后端基础地址（替换为你的IP）
-const baseUrl = ref('http://8.166.131.238:8000')
+const baseUrl = ref('https://api.aipro.ren')
 const router = useRouter()
 
 // 筛选表单
@@ -135,7 +137,7 @@ const fetchStudentList = async () => {
       params.name = searchForm.value.studentName.trim()
     }
     if (searchForm.value.auditStatus !== '') {
-      params.audit_status = searchForm.value.auditStatus === 'true'
+      params.audit_status = searchForm.value.auditStatus
     }
     
     // 调用后端接口（获取提交过成果的学生列表）
@@ -202,6 +204,13 @@ const viewDetail = (studentId) => {
     name: 'StudentDetail',
     params: { studentId }
   })
+}
+
+const statusTagType = (status) => {
+  if (status === '待复核') return 'danger'
+  if (status === '已复核') return 'warning'
+  if (status === '已审核') return 'success'
+  return 'info'
 }
 </script>
 
